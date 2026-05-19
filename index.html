@@ -1,1 +1,273 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق إدارة المدرسة (Mini ERP)</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="light-mode">
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+    </div>
 
+    <div id="setup-modal" class="modal active">
+        <div class="modal-content glass text-center">
+            <h2><i class="fas fa-school"></i> أهلاً بك في النظام</h2>
+            <p>يرجى إضافة بيانات المدرسة للبدء</p>
+            <input type="text" id="setup-school-name" class="glass-input" placeholder="اسم المدرسة (مثال: ثانوية هبة الرحمن)">
+            <input type="date" id="setup-school-date" class="glass-input">
+            <button class="btn-3d success w-100 mt-2" onclick="saveSetup()"><i class="fas fa-sign-in-alt"></i> حفظ والدخول للنظام</button>
+        </div>
+    </div>
+
+    <div id="app" class="hidden">
+        <div id="tab-settings" class="tab-content">
+            <div class="glass p-3 mb-3 text-center flex-between">
+                <h3 id="display-school-name" style="margin: 0;"></h3>
+                <button class="btn-3d" onclick="toggleTheme()"><i class="fas fa-moon"></i> الوضع</button>
+            </div>
+
+            <div class="glass p-3 mb-3" style="border: 2px solid #2ecc71;">
+                <h3 style="color: #2ecc71;"><i class="fas fa-file-excel"></i> محرك استيراد وتوليد الإكسل</h3>
+                <p><small>ارفع أي ملف إكسل وسيقوم النظام أوتوماتيكياً بتحويل كل Sheet إلى تبويبة متكاملة (مع عمليات الإضافة والحذف والجمع الرياضي).</small></p>
+                <input type="file" id="excel-file" class="glass-input m-0" accept=".xlsx, .xls" style="padding-top:10px;">
+                <button class="btn-3d success w-100 mt-2" onclick="importExcel()"><i class="fas fa-upload"></i> تحليل واستيراد</button>
+            </div>
+
+            <div class="glass p-3 mb-3">
+                <h3><i class="fas fa-edit"></i> تعديل بيانات المدرسة</h3>
+                <input type="text" id="edit-school-name" class="glass-input" placeholder="اسم المدرسة">
+                <input type="date" id="edit-school-date" class="glass-input">
+                <button class="btn-3d success w-100 mt-1" onclick="updateSchool()"><i class="fas fa-save"></i> تحديث البيانات</button>
+            </div>
+
+            <div class="glass p-3 mb-3 pb-x">
+                <button class="btn-3d w-100 mb-2" onclick="showModal('regions-modal')"><i class="fas fa-map-marked-alt"></i> أسماء المناطق والسواق</button>
+                <h3><i class="fas fa-layer-group"></i> إدارة الصفوف</h3>
+                <div class="flex-row">
+                    <input type="text" id="new-class-name" class="glass-input m-0" placeholder="إضافة صف جديد...">
+                    <button class="btn-3d success" onclick="addClass()"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="classes-list" class="mt-2 list-container"></div>
+            </div>
+        </div>
+
+        <div id="tab-students" class="tab-content active-tab">
+            <div class="glass p-3 mb-3">
+                <button class="btn-3d success w-100 mb-2" onclick="openAddStudentModal()"><i class="fas fa-user-plus"></i> إضافة طالب جديد</button>
+                <div style="position: relative;">
+                    <i class="fas fa-search" style="position: absolute; right: 15px; top: 15px; color: #888;"></i>
+                    <input type="text" id="search-student" class="glass-input m-0" style="padding-right: 40px;" placeholder="ابحث عن طالب بأول حرف..." onkeyup="searchStudent()">
+                </div>
+            </div>
+            <div id="students-list" class="list-container pb-x"></div>
+        </div>
+
+        <div id="tab-reports" class="tab-content">
+            <div class="glass p-3 mb-3 pb-x">
+                <h3><i class="fas fa-chart-pie"></i> التقارير 📊</h3>
+                <div class="grid-2 mt-1 mb-2">
+                    <select id="rep-class" class="glass-input m-0" onchange="updateRepSectionDropdown()"></select>
+                    <select id="rep-section" class="glass-input m-0" onchange="generateReport()"><option value="">اختر الشعبة</option></select>
+                </div>
+                <button class="btn-3d success w-100 mb-2" onclick="exportReportExcel()"><i class="fas fa-file-excel"></i> تحميل ملف إكسل</button>
+                <div id="report-list" class="list-container"></div>
+            </div>
+        </div>
+
+        <div id="tab-salaries" class="tab-content">
+            <div class="glass p-3 mb-3 pb-x">
+                <div class="flex-between mb-2">
+                    <h3><i class="fas fa-wallet"></i> الرواتب</h3>
+                    <button class="btn-3d success btn-small m-0" onclick="openAddStaffModal()"><i class="fas fa-plus"></i> إضافة موظف</button>
+                </div>
+                <div id="staff-list" class="list-container"></div>
+            </div>
+        </div>
+        
+        <div id="tab-daily" class="tab-content text-center">
+            <div class="glass p-3 mt-3">
+                <h2><i class="fas fa-calendar-check"></i> خلاصة اليوم</h2>
+                <input type="date" id="daily-date-filter" class="glass-input mt-2" onchange="renderDaily()">
+                <div class="grid-3 mt-2">
+                    <div class="glass p-2"><small>الإيرادات</small><br><b id="daily-in" style="color:#2ecc71; font-size:18px;">0</b></div>
+                    <div class="glass p-2"><small>المصروفات</small><br><b id="daily-out" style="color:#e74c3c; font-size:18px;">0</b></div>
+                    <div class="glass p-2"><small>الصافي</small><br><b id="daily-net" style="color:#3498db; font-size:18px;">0</b></div>
+                </div>
+            </div>
+            <div class="glass p-3 mt-3 pb-x">
+                <div class="flex-between mb-2">
+                    <h3>المصروفات اليومية</h3>
+                    <button class="btn-3d warning btn-small m-0" onclick="openAddExpense()"><i class="fas fa-plus"></i> إضافة</button>
+                </div>
+                <div id="daily-expenses" class="list-container"></div>
+            </div>
+        </div>
+        
+        <div id="tab-dual" class="tab-content text-center pb-x">
+            <div class="glass p-3 mt-3">
+                <h2><i class="fas fa-balance-scale"></i> الخلاصة الثنائية (المركز المالي)</h2>
+                <div class="list-container mt-3 text-right">
+                    <div class="list-item flex-between"><span>إجمالي الأقساط المتوقعة:</span><b id="dual-expected">0</b></div>
+                    <div class="list-item flex-between"><span>الواصل الفعلي الكلي:</span><b id="dual-collected" style="color:#2ecc71;">0</b></div>
+                    <div class="list-item flex-between"><span>إجمالي الديون المتبقية:</span><b id="dual-debt" style="color:#e74c3c;">0</b></div>
+                    <hr style="border-color: rgba(0,0,0,0.1);">
+                    <div class="list-item flex-between"><span>إجمالي الرواتب المصروفة:</span><b id="dual-salaries" style="color:#e74c3c;">0</b></div>
+                    <div class="list-item flex-between"><span>إجمالي المصروفات الكلية:</span><b id="dual-expenses" style="color:#e74c3c;">0</b></div>
+                    <div class="list-item flex-between" style="background:rgba(46, 204, 113, 0.2);"><span><b>صافي الصندوق:</b><br><small>(الواصل الفعلي - النفقات)</small></span><b id="dual-net" style="font-size:22px;">0</b></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav glass" id="bottom-nav-container">
+            <button class="nav-btn" onclick="switchTab('settings')" id="nav-settings"><i class="fas fa-cog"></i><span>الإعدادات</span></button>
+            <button class="nav-btn active" onclick="switchTab('students')" id="nav-students"><i class="fas fa-user-graduate"></i><span>الطلاب</span></button>
+            <button class="nav-btn" onclick="switchTab('reports')" id="nav-reports"><i class="fas fa-chart-pie"></i><span>التقارير</span></button>
+            <button class="nav-btn" onclick="switchTab('salaries')" id="nav-salaries"><i class="fas fa-money-bill"></i><span>الرواتب</span></button>
+            <button class="nav-btn" onclick="switchTab('daily')" id="nav-daily"><i class="fas fa-clock"></i><span>اليومية</span></button>
+            <button class="nav-btn" onclick="switchTab('dual')" id="nav-dual"><i class="fas fa-chart-line"></i><span>الثنائية</span></button>
+            </div>
+    </div>
+
+    <div id="regions-modal" class="modal">
+        <div class="modal-content glass">
+            <span class="close-btn" onclick="hideModal('regions-modal')">&times;</span>
+            <h3>إدارة المناطق</h3>
+            <div class="glass p-2 mb-2">
+                <input type="text" id="reg-name" class="glass-input" placeholder="اسم المنطقة">
+                <input type="text" id="reg-driver" class="glass-input" placeholder="اسم السائق">
+                <input type="text" id="reg-phone" class="glass-input" placeholder="رقم هاتف السائق">
+                <input type="text" id="reg-code" class="glass-input" placeholder="رمز المنطقة (أرقام)">
+                <button class="btn-3d success w-100 mt-1" onclick="addRegion()">حفظ المنطقة</button>
+            </div>
+            <div id="regions-list" class="list-container"></div>
+        </div>
+    </div>
+
+    <div id="add-student-modal" class="modal">
+        <div class="modal-content glass large">
+            <span class="close-btn" onclick="hideModal('add-student-modal')">&times;</span>
+            <h3>إضافة/تعديل طالب</h3>
+            <div class="grid-2">
+                <select id="std-class" class="glass-input" onchange="updateSectionDropdown()"></select>
+                <select id="std-section" class="glass-input"><option value="">اختر الشعبة</option></select>
+                <input type="text" id="std-reg" class="glass-input" placeholder="القيد">
+                <input type="text" id="std-name" class="glass-input" placeholder="الاسم الثلاثي">
+                <input type="text" id="std-phone" class="glass-input" placeholder="رقم الموبايل">
+                <input type="number" id="std-fee" class="glass-input" step="0.25" placeholder="القسط الكلي (د.ع)">
+                <input type="text" id="std-reg-code" class="glass-input" placeholder="رمز المنطقة" onkeyup="checkRegionCode()">
+            </div>
+            
+            <div class="glass p-2 mt-1 mb-2">
+                <small>معلومات النقل التلقائية:</small>
+                <div class="flex-row mt-1">
+                    <input type="text" id="std-reg-name" class="glass-input m-0" placeholder="المنطقة" disabled>
+                    <input type="text" id="std-driver-name" class="glass-input m-0" placeholder="السائق" disabled>
+                    <input type="text" id="std-driver-phone" class="glass-input m-0" placeholder="الهاتف" disabled>
+                </div>
+            </div>
+
+            <div class="flex-between mb-1">
+                <h4>الأخوة المضافين:</h4>
+                <button class="btn-3d warning btn-small m-0" onclick="showModal('add-sibling-modal')"><i class="fas fa-plus"></i> إضافة أخ</button>
+            </div>
+            <div id="siblings-temp-list" class="list-container mb-2"></div>
+
+            <button class="btn-3d success w-100" onclick="saveStudent()"><i class="fas fa-save"></i> حفظ الطالب</button>
+        </div>
+    </div>
+
+    <div id="add-sibling-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content glass">
+            <span class="close-btn" onclick="hideModal('add-sibling-modal')">&times;</span>
+            <h3>إضافة أخ</h3>
+            <input type="text" id="sib-reg" class="glass-input" placeholder="القيد">
+            <input type="text" id="sib-name" class="glass-input" placeholder="الاسم الثلاثي">
+            <select id="sib-class" class="glass-input" onchange="updateSibSectionDropdown()"></select>
+            <select id="sib-section" class="glass-input"><option value="">اختر الشعبة</option></select>
+            <button class="btn-3d success w-100 mt-2" onclick="saveSiblingTemp()"><i class="fas fa-check"></i> حفظ الأخ</button>
+        </div>
+    </div>
+
+    <div id="student-profile-modal" class="modal">
+        <div class="modal-content glass large">
+            <span class="close-btn" onclick="hideModal('student-profile-modal')">&times;</span>
+            <div class="flex-between" style="flex-wrap: wrap;">
+                <div>
+                    <h2 id="prof-name"></h2>
+                    <div id="prof-details" style="font-size: 14px; opacity: 0.8; margin-top: 5px; font-weight:bold;"></div>
+                </div>
+                <span class="glass p-1">القيد: <b id="prof-reg"></b></span>
+            </div>
+            
+            <div class="grid-3 mt-2 mb-2 text-center">
+                <div class="glass p-2">الكلي<br><b id="prof-total">0</b></div>
+                <div class="glass p-2" style="color: #2ecc71;">الواصل<br><b id="prof-paid">0</b></div>
+                <div class="glass p-2" style="color: #e74c3c;">المتبقي<br><b id="prof-rem">0</b></div>
+            </div>
+
+            <div class="grid-2 mb-2">
+                <button class="btn-3d success" onclick="showModal('payment-modal')"><i class="fas fa-money-bill-alt"></i> تسديد</button>
+                <button class="btn-3d" onclick="openGrades()"><i class="fas fa-star"></i> الدرجات</button>
+            </div>
+
+            <button class="btn-3d w-100 mb-1" onclick="printReceipt()"><i class="fas fa-print"></i> طباعة وصل A4</button>
+            <button class="btn-3d success w-100" onclick="exportStudentExcel()"><i class="fas fa-file-excel"></i> تصدير ملف إكسل للطالب</button>
+        </div>
+    </div>
+
+    <div id="payment-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content glass">
+            <span class="close-btn" onclick="hideModal('payment-modal')">&times;</span>
+            <h3>تسديد قسط</h3>
+            <div class="flex-row mt-2 mb-2">
+                <input type="number" id="pay-amount" class="glass-input m-0" placeholder="أدخل المبلغ">
+                <button class="btn-3d success" onclick="submitPayment()"><i class="fas fa-check"></i> حفظ</button>
+            </div>
+            <h4>معاملات التسديد:</h4>
+            <div id="payments-history" class="list-container"></div>
+        </div>
+    </div>
+
+    <div id="grades-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content glass" style="max-width: 95%; overflow-x: auto;">
+            <span class="close-btn" onclick="hideModal('grades-modal')">&times;</span>
+            <div class="flex-between mb-2">
+                <h3>سجل الدرجات</h3>
+                <button class="btn-3d" onclick="printGrades()"><i class="fas fa-print"></i> طباعة A4</button>
+            </div>
+            <div id="grades-table-container"></div>
+            <button class="btn-3d success w-100 mt-2" onclick="saveGrades()"><i class="fas fa-save"></i> حفظ الدرجات</button>
+        </div>
+    </div>
+
+    <div id="add-staff-modal" class="modal">
+        <div class="modal-content glass">
+            <span class="close-btn" onclick="hideModal('add-staff-modal')">&times;</span>
+            <h3><i class="fas fa-user-tie"></i> إضافة موظف/معلم</h3>
+            <input type="text" id="staff-name" class="glass-input mt-2" placeholder="الاسم">
+            <input type="text" id="staff-role" class="glass-input" placeholder="المسمى الوظيفي">
+            <input type="number" id="staff-salary" class="glass-input" placeholder="الراتب الأساسي">
+            <button class="btn-3d success w-100" onclick="saveStaff()"><i class="fas fa-save"></i> حفظ</button>
+        </div>
+    </div>
+
+    <div id="dynamic-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content glass large">
+            <span class="close-btn" onclick="hideModal('dynamic-modal')">&times;</span>
+            <h3 id="dyn-modal-title">إضافة / تعديل</h3>
+            <div id="dyn-modal-inputs" class="grid-2 mt-2 mb-2"></div>
+            <button class="btn-3d success w-100" onclick="saveDynRecord()"><i class="fas fa-save"></i> حفظ السجل</button>
+        </div>
+    </div>
+
+    <div id="print-area"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
